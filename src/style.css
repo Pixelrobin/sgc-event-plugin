@@ -1,0 +1,19 @@
+.simple-band-events-input {
+	width: 300px;
+}
+
+.simple-band-events-force-white {
+	background-color: white!important;
+}
+
+input.sgc-event-input {
+	width: 300px;
+	max-width: 100%;
+	background-color: white!important;
+	margin-bottom: 16px;
+}
+
+.sgc-checkbox-label {
+	display: inline-block;
+	margin-bottom: 8px;
+}
