@@ -59,14 +59,14 @@ function sgc_event_metaboxes() {
 	add_meta_box(
 		'sgc_event_info',
 		'Event Information',
-		'simple_band_event_info_html',
+		'sgc_event_info_html',
 		'event',
 		'advanced',
 		'high'
 	);
 }
 
-function simple_band_event_info_html($post) {
+function sgc_event_info_html($post) {
 	$datetime_start_meta = get_post_meta($post->ID, 'sgc_event_start_datetime', true);
 	$datetime_end_meta   = get_post_meta($post->ID, 'sgc_event_end_datetime', true);
 
@@ -75,6 +75,8 @@ function simple_band_event_info_html($post) {
 	
 	$datetime_start = DateTime::createFromFormat('Y-m-d H:i:s', $datetime_start_meta);
 	$datetime_end   = DateTime::createFromFormat('Y-m-d H:i:s', $datetime_end_meta);
+
+	$date = $datetime_start !== false ? $datetime_start->format('Y-m-d') : '';
 
 	$time_start = $include_start_time_meta === 'true' ? $datetime_start->format('H:i:s') : '';
 	$time_end   = $include_end_time_meta === 'true' ? $datetime_end->format('H:i:s') : '';
@@ -91,7 +93,7 @@ function simple_band_event_info_html($post) {
 			id="sgc-event-date"
 			name="sgc-event-date"
 			class="sgc-event-input sgc-event-date-input"
-			value="<?php echo esc_attr($datetime_start->format('Y-m-d')) ?>"
+			value="<?php echo esc_attr($date) ?>"
 		>
 
 		<br>
@@ -178,3 +180,82 @@ function sgc_event_metaboxes_init() {
 add_action('init', 'sgc_event_init');
 add_action('load-post.php', 'sgc_event_metaboxes_init');
 add_action('load-post-new.php', 'sgc_event_metaboxes_init');
+
+// --- Getters: --- //
+
+function sgc_event_get_event_info($post_id, $date_format = 'l, M j', $time_format = 'g:i A') {
+	$datetime_start_meta = get_post_meta($post_id, 'sgc_event_start_datetime', true);
+	$datetime_end_meta   = get_post_meta($post_id, 'sgc_event_end_datetime', true);
+
+	$include_start_time_meta = get_post_meta($post_id, 'sgc_event_include_start_time', true) === 'true';
+	$include_end_time_meta   = get_post_meta($post_id, 'sgc_event_include_end_time', true) === 'true';
+	
+	$datetime_start = DateTime::createFromFormat('Y-m-d H:i:s', $datetime_start_meta);
+	$datetime_end   = DateTime::createFromFormat('Y-m-d H:i:s', $datetime_end_meta);
+
+	$date       = $datetime_start->format($date_format);
+	$time_start = $include_start_time_meta ? $datetime_start->format($time_format) : false;
+	$time_end   = $include_end_time_meta ? $datetime_end->format($time_format) : false;
+
+	return array(
+		"date"       => $date,
+		"start_time" => $time_start,
+		"end_time"   => $time_end
+	);
+}
+
+function sgc_event_get_upcoming_query($max_items = 5) {
+	$now = new DateTime();
+	$now->setTime(0, 0);
+
+	$query_args = array(
+		'post_type'      => 'event',
+		'meta_key'       => 'sgc_event_start_datetime',
+		'orderby'        => 'meta_value',
+		'order'          => 'ASC',
+		'posts_per_page' => $max_items,
+		'meta_query'     => array(
+			'key'     => 'sgc_event_start_datetime',
+			'value'   => $now->format('Y-m-d H:i:s'),
+			'compare' => '>=',
+			'type'    => 'DATETIME'
+		)
+	);
+
+	return $query = new WP_Query($query_args);
+}
+
+function sgc_event_get_month_query($month = null, $year = null) {
+	$start = new DateTime();
+
+	if ($month === null) $month = intval($start->format('m'));
+	if ($year === null)  $year  = intval($start->format('Y'));
+
+	$start->setDate($year, $month, 1);
+	$start->setTime(0, 0);
+
+	$num_days = intval($start->format('t'));
+
+	$end = new DateTime();
+	$end->setDate($year, $month, $num_days);
+	$end->setTime(23, 59, 59);
+
+	$query_args = array(
+		'post_type'      => 'event',
+		'meta_key'       => 'sgc_event_start_datetime',
+		'orderby'        => 'meta_value',
+		'order'          => 'ASC',
+		'posts_per_page' => -1,
+		'meta_query'     => array(
+			'key'     => 'sgc_event_start_datetime',
+			'value'   => array(
+				$start->format('Y-m-d H:i:s'),
+				$end->format('Y-m-d H:i:s')
+			),
+			'compare' => 'BETWEEN',
+			'type'    => 'DATETIME'
+		)
+	);
+
+	return $query = new WP_Query($query_args);
+}
